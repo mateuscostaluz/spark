@@ -1,0 +1,236 @@
+1.1
+
+Spark é uma plataforma analítica unificada para o processamento de dados em larga escala ==> grande volume de dados
+
+Usado para preparar dados para análises, modelos de aprendizado de máquina ou analisar dados em tempo real
+
+Unificada porque pode ser usada em vários userkeys distintos, sem precisar combinar diferentes ferramentas
+Spark SQL e Dataframe - trabalhar com workloads de dados e ETL
+Streaming - trabalhar com dados em tempo real
+Mlib - trabalhar com machine learning
+Graphx - trabalhar com processamentos de grafos como,  por exemplo, social networking analysis
+
+INTEGRADO COM O SPARK CORE API ==> Funcionalidades base do Spark (pode escolher diferentes componentes que quiser e diferentes linguagens para rodar programas no Spark, como R, SQL, PYTHON, SCALA, JAVA)
+
+Links úteis:
+databricks.com
+spark.pache.org
+
+1.2
+
+Componentes chave do Spark
+Driver Program --> orquestrar execução do programa --> função principal com lógica do código
+Ficar atento na memória alocada para evitar estouro de memória
+Lembrar que o programa deve ser executado de forma distirbuída
+Quando efetuamos operação ela é traduzida par um plano de execução lógico
+Passo a Passo --> carregue os dados, aplique um filtro e retorne os registros ordenados de forma crescente
+Sequencia lógica Spark --> CONHECIDA COMO LINEAGE (plano lógico)
+Sabendo dessa sequência o Spark cria um objeto chamado Dag Scheduler (quebrando os passos por estágios ou stages)
+E assim cria as tarefas que devem ser executadas
+
+1. DRIVER PROGRAM
+         | --> PLANO LÓGICO (LINEAGE)
+2. DAG SCHEDULER
+         | --> PLANO FÍSICO
+3. TASK SCHEDULER
+
+E basta executá-las, acionando os worker nodes para executar os programas de forma distribuída
+Executor --> responsável pela execução do programa
+Posso distribuir as tarefas de forma paralela entre os worker nodes
+
+Spark Context --> responsável por criar a ponte entre o driver e o ambiente de execução do programa
+Fará a conexão entre os drivers e os executers
+Spark possibilita a computação distribuída --> custer manager (ajuda a gerenciar recursos como memória e cpu), pode ser do próprio Spark ou do Yarn
+
+Diferentes modos de execução do Spark
+standalone --> o driver program roda apenas em uma máquina, sem clusters (mas pode distribuir entre diferentes cores do processador)
+client mode --> o driver program roda na mesma máquina onde o programa foi iniciado
+custer mode --> o driver program rodar em qualquer máquina do cluster
+
+1.3
+
+Principal componente do Spark (talvez)
+
+Resillient Distributed Dataset (RDD)
+Por causa dele Spark ficou tão famoso
+Coleção de objetos particionada em várias máquinas do cluster que podem ser carregadas em paralelo
+Carregando nossos dados em uma estrutura, dividindo parte dos dados em diferentes máquinas
+Imutáveis --> uma vez criados, não podemos alterar seus dados, nem estrutura, particionados
+Podemos fazer .TRANSFORMATION.ACTION
+Transformação não processa no momento que os comandos são executados (lazy evaluation), são adicionadas ao lineage embora não executadas no momento em que as operações de ação forem executadas
+Cada operação nova cria um novo RDD
+Operações: mostrar dados, contar
+Características dos RDDs:
+- Conhecer sua lista de partições
+- Possuir compute functions (por exemplo: .filter(), etc.)
+- Saber gerenciar as dependências de cálculo --> DAG (Direct Acyclic Graph)
+DAG é responsável por mapear todas as transformações e ações --> resultados salvos em memória para levar para outras tasks (resultados temporários) em outros estágios (stages)
+
+1.4
+
+INSTALAÇÃO JAVA 8
+INSTALAÇÃO SCALA
+INSTALAÇÃO E CONFIGURAÇÃO SPARK E SPARK
+INSTALAÇÃO E CONFIGURAÇÃO SPARK E ATOM
+PACKAGES ATOM --> LANGUAGE-SCALA E PLATFORMIO-IDE-TERMINAL
+
+1.5
+
+Hadoop e Spark sem complementam
+
+Hadoop
+Processamento distribuído
+Composto por vários componentes:
+hdfs --> sistemas de gerenciamento de arquivos do Hadoop
+map reduce --> framework de processamento distribuído com paradigma map reduce e comparável ao Spark
+Diferenças:
+Hadoop map reduce
+Armazena resultados parciais e finais em disco
+Usa paradigma de desenvolvimento map reduce shuffle
+
+Spark
+Armazena resultados parciais em memória e finais em disco (possível mudar essa característica)
+Possui outras funções de transformação de dados (além de map reduce shuffle)
+NÃO VEM COM SISTEMAS DE ARQUIVOS DISTRIBUÍDO, POR ISSO A DEPENDÊNCIA DO HADOOP
+Spark substitui o map reduce do Hadoop, mas não o sistemas de arquivos HDFS (poderia vir a ser substituído pelo amazon webservices s3, por exemplo)
+
+1.6
+
+RDD e planos de execução
+RDD ex. --> Alunos 100 milhões de registros --> trabalhando com ambiente de cluster --> Registros divididos em 4 máquinas, cada uma com dados de locais específicos e diferentes --> Criar uma nova coluna com a idade do aluno (pode-se usar map e especificar os parâmetros) --> Alunos.map(...)
+CADA PARTIÇÃO PODE TRABALHAR DE FORMA AUTÔNOMA E PARALELA
+Quero filtrar apenas os alunos com mais de dez anos --> Alunos.map(...).filter(...)
+PARALELA E INDEPENDENTE (ainda não está no driver e não será rodado imediatamente)
+Calcular quantidade de alunos por idade --> Alunos.map(...).filter(...).reduceByKey(...)
+Agora temos mais uma etapa no nosso lineage (receber dados de múltiplas partições para realizar a contagem)
+Cada partição pode contar seus dados (processar de forma paralela)
+Shuffle (mistura os dados dos nós paralelos)
+Alunos.map(...).filter(...).reduceByKey(...).collect() --> COLLECT É CONSIDERADA UMA AÇÃO E AGORA O SPARK IRÁ RODAR TODAS AS OPERAÇÕES ANTERIORES PARA MOSTRAR OS RESULTADOS (CONTAGEM FINAL PARA O USUÁRIO) --> Resultado da contagem (restante é o plano lógico para chegar no resultado final --> contagem por idade)
+
+1.7
+
+Lineage --> Alunos.toDebugString
+Spark executa as tarefas por meio do plano de execução físico (diferente do plano lógico)
+Para chegar no plano físico precisa-se conhecer os tipos de relacionamentos existentes entre cada etapa das operações (classificados como narrow ou wide dependency)
+--> Narrow dependency --> partição filha depende de todos os dados da partição pai, mesmo que a pai tenha outros filhos
+--> Wide dependency --> precisa de dados de diferentes partições pai para fazer a contagem (operação de shuffle) --> quebrar em stages diferentes (cada stage terá seu próprio conjunto de tarefas)
+-- Pipeline de execução dá origem ao plano físico --> Cria tarefas para executar diferentes partes da operação otimizando e mudando ordem se necessário
+
+1.8
+
+spark-shell (inicia sessão do spark shell na máquina)
+PONTOS IMPORTANTES: quando iniciada uma sessão, recebe-se objetos para se trabalhar, como, por exemplo, sc ou spark
+Link Web UI --> basta copiar o link do cmd quando digitado spark-shell
+Abas que mostram todo o funcionamento do programa Jobs | Stages que foram executadas | Storages (persistir ou armazenar dados do dataframes ou RDDs em memória ou em disco ficam logados aqui) | Enviroment (configurações do ambiente) | Lista de executers para executar os códigos no Spark
+-- Comandos scala executados pelo terminal do Spark
+-- GroupBy geralmente combina dados de diferentes partições (shuffle)
+-- dados.rdd.getNumPartitions (ver número de partições)
+
+1.9
+
+Spark é conhecido por viabilizar o que é chamado de in memory computing
+Armazenar RDD em memória pra otimizar tempo de execução
+COMPORTAMENTO PADRÃO: desalocar da memória
+Armazena em cache resultados de cada stage da operação
+STAGES QUEBRADAS SEMPRE QUE É ENCONTRADO UM RELACIONAMENTO WIDE (MAIS COMPLEXO QUE NARROW) --> QUANDO WIDE GRAVA OBJETOS EM CACHE
+Quando reexecutado usa-se resultados anteriores
+RDD SÃO IMUTÁVEIS
+Possível mudar resultados pelo comando persist
+Principais opções:
+MEMORY_ONLY --> todos os dados do RDD são salvos em memória e a parte excedente será recalculada sempre que necessário
+DISK_ONLY --> todos os dados do RDD são salvos em disco
+MEMORY_AND_DISK --> salva todo o RDD na memória e o excedente em disco quando não possível em memória
+Spark apaga dados antigos para guardar novos (LEAST RECENT USED --> LRU)
+
+1.10
+
+O que acontece se um dos worker nodes cair?
+Precisamos de todos para retornar os resultados
+Tolerância a falhas (por ser in memory e não on disk)
+Em memória não tem como replicar resultados
+LINEAGE --> volta para reconstruir os dados em outro node caso um caia
+
+1.11
+
+Quais são as vantagens do Spark? NÃO GENÉRICAS
+RDD e DAG
+Spark é poderoso por possuir esses dois recursos
+Permitem que o Spark implemente in memory computing de forma muito eficiente
+Permitindo inclusive que se recupere de falhas mesmo mantendo dados em memória de máquinas diferentes
+Iterativo
+/\ Criação de modelos preditivos, por exemplo
+|| Reutilização várias vezes do mesmo RDD para encontrar os melhores parâmetros do algoritmo
+
+Interativo
+/\ Precisa explorar os dados por estar buscando respostas, ter os dados em memória torna mais fácil trabalhar
+
+1.12
+
+Cluster Manager
+Como os recursos do cluster são gerenciados
+Cluster Driver Node --> gerenciamento das máquinas físicas do cluster
+O driver do cluster manager existe independentemente da aplicação Spark existir
+Quando subtemos a aplicação o Spark Context pedi recursos para o cluster manager
+Dependendo da construção da aplicação o cluster manager aloca recursos para executar o driver program do Spark e as devidas tarefas
+Cluster Mode --> mapeamento do node que roda o driver e dos worker nodes
+Client Mode --> a aplicação Spark submetida por uma máquina fora do node (add node) --> driver program roda na mesma máquina que a aplicação é iniciada (worker nodes se comunicam para trocar informações) --> quando acaba o processo o driver do cluster manager recebe mensagem de sucesso ou falha
+
+1.13
+
+APIs para manipulação de dados --> PRÁTICA
+Conceitos importantes para entender manuseio de dados
+Spark classifica as formas de manipulação de dados em duas grandes categorias:
+- Structured API --> USAR SEMPRE QUE POSSÍVEL (CONFORME DOCUMENTAÇÃO)
+Refere-se à uma coleção de APIs para manipular os dados (DATAFRAME, SQL TABLES OU VIEWS, DATASET) --> PODE-SE USAR PARA FAZER TUDO NO SPARK, DESDE PROCESSAMENTO EM BATCH OU EM TEMPO REAL, PODE SER USADO EM DADOS NÃO ESTRUTURADOS, COMO ARQUIVOS DE LOG OU COISAS DO TIPO --> Structured significa que não é preciso manipular diretamente os RDDs do Spark (FERRAMENTAS MAIS INTUITIVAS DO QUE OS RDDs) --> Spark associa um RDD por trás do processamento
+- Low level API
+Manipula diretamente estruturas mais complexas do Spark (distributed shared variables, que podem ser divididas pelo cluster --> broadcast variables, accumulators)
+
+2.1
+
+Abrir projeto Atom (USANDO SCALA IDE --> CTRL + ALT + T --> open TM Terminal)
+Iniciar spark-shell
+Carregar dados em um dataframe
+Explorar os metadados do dataframe
+val dados = spark.read.option("header","true").option("inferSchema","true").option("delimiter",";").format("csv").load("C:/Users/mateus.luz/workspace/spark_datagree/data/bank-additional-full.csv") --> irá virar um DataFrame que terá um RDD associado à ele e que pode ser acessado pelo comando dados.rdd --> Structured API e todo comando rodado será convertido para ser processado pelo RDD em cima desse DatFrame (API mais intuitiva para desenvolvermos nosso código)
+
+--> Comandos básicos úteis
+// Exibe a estrutura do dataframe
+dados.printSchema()
+
+// Exibe os primeiros registros do dataframe
+dados.show(2)
+
+// Retorna os primeiros registros
+dados.head(2)
+
+// Retorna algumas estatisticas das colunas do dataframe
+dados.select($"age").describe().show()
+
+// Retorna as colunas do dataframe
+dados.columns
+
+O RESULTADO DE CADA FUNÇÃO É TRANSMITIDO PARA A PRÓXIMA FUNÇÃO ATÉ QUE O COMANDO SEJA FINALIZADO (LINGUAGEM FUNCIONAL)
+
+2.2
+
+Importar funções para serem usadas no código
+Carregar dados que serão utilizados:
+val dados = spark.read.option("header","true").option("inferSchema","true").option("delimiter",";").format("csv").load("C:/Users/mateus.luz/workspace/spark_datagree/data/bank-additional-full.csv")
+SQL --> SELECT COLUNA FROM TABELA
+Spark --> variável ou constante.select("coluna").show(quantidade de registros)
+// Diferentes formas de selecionar uma coluna
+dados.select("age").show(5)
+dados.select($"age").show(5)
+dados.select('age).show(5)
+dados.select(dados.col("age")).show(5)
+dados.select(col("age")).show(5)
+dados.select(column("age")).show(5)
+dados.select(expr("age")).show(5)
+lit --> função para definir valor constante para coluna, por exemplo (valor constante dentro do DataFrame)
+DataFrame não pode ser alterado, mas pode ser copiado para um novo DataFrame
+Possível criar expressões em variáveis (if || else, por exemplo) --> possível utilizar tudo o que existe no SQL <-- pode-se usar expressão para criar nova coluna
+
+2.13
+
+Spark SQL --> spark-sql --> objeto persistido no sistema de arquivos (HDFS, por exemplo) --> pode ser acessada por uma spark session (spark-shell) ou por ferramentas de terceiros
+Presistência metadados --> map store --> hive (comum que a estrutura esteja no hive)
