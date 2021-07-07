@@ -230,6 +230,34 @@ lit --> função para definir valor constante para coluna, por exemplo (valor co
 DataFrame não pode ser alterado, mas pode ser copiado para um novo DataFrame
 Possível criar expressões em variáveis (if || else, por exemplo) --> possível utilizar tudo o que existe no SQL <-- pode-se usar expressão para criar nova coluna
 
+2.3
+
+Filtrar e ordenar linhas do DataFrame
+Trabalhar com funções dentor do DataFrame
+
+Iniciar spark-shell
+Carregar funções (imports)
+Iniciar val com o arquivo .csv
+--> sintaxe função bem parecida com a lógica sql (ex.: sequência --> select(COLUNAS).filter(OPERAÇÃO DE COMPARAÇÃO).orderBy(COLUNA.desc).show(QUANTIDADE LINHAS))
+Particularidades filtros Scala
+Sinal de igual é o === ou equalTo()
+Sinal de diferente é o =!= ou <>
+É possível filtrar usando filter() ou where()
+Todo o filtro pode estar dentro de aspas duplas ou não (condição SQL ou Scala, respectivamente
+EXISTE MUITA INTEGRAÇÃO ENTRE DATAFRAME E SQL
+Selecionar linhas únicas de uma determinada coluna --> variável.select(coluna).distinct().show(quantidade)
+Aplicação de vários filtros --> criar variáveis específicas para esses filtros e usar no comando principal
+ex.: val filtro_idade = col("age") > 40
+	 val filtro_civil = col("marital").contains("married")
+Utilização vários filtros --> variável.select(colunas).where(coluna.isin(primeiroParametro, segundoParametro).where(filtro_civil.or(filtro_idade)).show(quantidade)
+isin --> mesma coisa do filtro "in" em SQL
+contains --> mesma coisa que comparação de string em SQL
+É possível utilizar a variável com a função de comparação para seleção (como uma nova coluna de exibição) --> variável.select(colunas).where(coluna.isin(primeiroParametro, segundoParametro).where(filtro_civil.or(filtro_idade)) --> .withColumn(nome coluna "filtro_civil", nome variável com a função de comparação filtro_civil) <-- .show(quantidade)
+cast --> pode ser utilizado para converter colunas
+ex.: val dados1 = dados.withColumn("idade_string", col("age").cast("string"))
+Aplicar função Spark sobre uma coluna do DataFrame --> dados.select(upper($"poutcome")).show(quantidade) || dados.select(lower($"poutcome")).show(quantidade) --> upper(coluna) transforma todas as linhas da coluna em maiúsculo na consulta e lower(coluna) transforma todas as linhas da coluna em minúsculo
+OLHAR DOCUMENTAÇÃO DO SPARK PARA VER TODAS AS OUTRAS FUNÇÕES QUE PODEM SER UTILIZADAS DENTRO DOS DATAFRAMES
+
 2.13
 
 Spark SQL --> spark-sql --> objeto persistido no sistema de arquivos (HDFS, por exemplo) --> pode ser acessada por uma spark session (spark-shell) ou por ferramentas de terceiros
