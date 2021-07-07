@@ -258,6 +258,97 @@ ex.: val dados1 = dados.withColumn("idade_string", col("age").cast("string"))
 Aplicar função Spark sobre uma coluna do DataFrame --> dados.select(upper($"poutcome")).show(quantidade) || dados.select(lower($"poutcome")).show(quantidade) --> upper(coluna) transforma todas as linhas da coluna em maiúsculo na consulta e lower(coluna) transforma todas as linhas da coluna em minúsculo
 OLHAR DOCUMENTAÇÃO DO SPARK PARA VER TODAS AS OUTRAS FUNÇÕES QUE PODEM SER UTILIZADAS DENTRO DOS DATAFRAMES
 
+2.4
+
+Como trabalhar com expressões dentro de um DataFrame (val = arquivo.csv)
+dados.select($"age" + 10).show(quantidade ou vazio)
+dados.select(expr("age" + 10)).show(10)
+dados.selectExpr(
+"*",
+"(age > 40 as idade_maior_40") --> operação booleana
+.show(10)
+/\ executam a mesma operação de formas diferentes
+dados.selectExpr("max(age)").show(10)
+dados.selectExpr("age as `idade com espaço`").show(2)
+
+// com variáveis (selecionando amostra)
+val seed = 2019
+val withReplacement = false
+val fraction = 0.1
+dados.sample(withReplacement, fraction, seed).count() --> sample === amostragem
+dados.count() --> valor do tipo Long com a quantidade de linhas do DataFrame
+
+// dividir os dados em dois DataFrames
+val seed = 2019
+val dataFrames = dados.randomSplit(Array(0.25, 0.75), seed) --> cria um Array com DataFrames
+dataFrames[0].count() --> 25% dos dados
+dataFrames[1].count() --> 75% dos dados
+
+// unindo dados (linhas)
+val dados1 = dataFrames[0].union(dataFrames[1]).where($"marital" === "married") --> possível usar where e filtros
+dados1.show(5) --> mostrar o exemplo
+
+Algumas funções retornam DataSets e não DataFrames
+
+dados1.limit(5) --> limita os resultados para determinada quantidade de registros
+dados1.limit(5).count(5) --> conta os dados limitados
+
+2.5
+
+Importa funções
+import org.apache.spark.sql.types.{StructField, StructType, StringType, LongType, DoubleType, IntegerType}
+import org.apache.spark.sql.functions.{col, column, expr, upper, lower, desc, asc, split, udf}
+import org.apache.spark.sql.Row
+
+Criando um Dataframe na mão
+// Carrega dados usando schema
+// val schema = df.schema
+val schema = new StructType(Array(
+new StructField("age", IntegerType, true),
+new StructField("job", StringType, true)))
+
+// Cria as linhas do nosso futuro dataframe
+val newRows = Seq(
+Row(30, "Cientista de dados"),
+Row(20, "Dev Java"),
+Row(10, null)
+)
+
+// Cria um RDD de Rows
+val parallelizedRows = spark.sparkContext.parallelize(newRows)
+
+// Cria um dataframe a partir do RDD que criamos anteriormente
+val dados_manual = spark.createDataFrame(parallelizedRows, schema)
+
+// Mostra as informações do dataframe
+dados_manual.show()
+
+Carrega os dados
+val dados = spark.read.option("header","true").option("inferSchema","true").option("delimiter",";").format("csv").load("data/bank-additional-full.csv")
+
+Trabalhando com valores ausentes
+--> exclui as linhas do DataFrame se uma das colunas mencionadas possuírem valores ausentes
+// Apaga o registro se pelo menos uma coluna possui valor nulo
+dados.select($"age", $"marital").na.drop("any")
+
+--> exclui as linhas do DataFrame se as duas colunas mencionadas possuírem valores ausentes
+// Apaga o registro se todas as colunas possuem valores nulos
+dados.select($"age", $"marital").na.drop("all")
+
+--> preenche com a string "Desconhecido" caso uma das colunas possuir valores ausentes
+// Fill
+dados_manual.na.fill("Desconhecido").show()
+
+--> preenche com a string 0 || "Desconhecido" caso a coluna especificada possua valores ausentes
+// Especificando valores para cada coluna
+val valores_para_preencher = Map("age" -> 0, "job" -> "Desconhecido")
+dados_manual.na.fill(valores_para_preencher).show()
+
+--> substitui valores independentemente do valor ser ausente ou não
+--> parâmetros ==> coluna que será substituída, Map("argumento" -> "string a ser substituída)
+Substituindo valores
+dados_manual.na.replace("job", Map("Dev Java" -> "Desenvolvedor")).show()
+
 2.13
 
 Spark SQL --> spark-sql --> objeto persistido no sistema de arquivos (HDFS, por exemplo) --> pode ser acessada por uma spark session (spark-shell) ou por ferramentas de terceiros
