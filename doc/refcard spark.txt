@@ -349,6 +349,206 @@ dados_manual.na.fill(valores_para_preencher).show()
 Substituindo valores
 dados_manual.na.replace("job", Map("Dev Java" -> "Desenvolvedor")).show()
 
+2.6
+
+Dados complexos --> colunas com estruturas diferentes
+ex.: coluna com lista de valores, mapa de informações
+
+3 formas para criar:
+1 - usando objetos do tipo Struct
+2 - usando objetos do tipo Array
+3 - usando objetos do tipo Map
+
+// Colunas do tipo struct -> Colocando id e job numa unica coluna do tipo struct
+val dados_complexos = dados_manual.select(struct("id", "job").alias("complexo"))
+dados_complexos.select("complexo.job").show(5)
+
+// Função Split -> Separa as informações da coluna job quando encontrar espaço. O resultado será um array
+val dados_split = dados_manual.select(split(col("job"), " ").alias("split_column"))
+dados_split.show()
+
+// Podemos referenciar nosso array pela sua posição
+dados_split.selectExpr("split_column[0]").show()
+
+// Tammém podemos contar quantas posições temos em cada array
+dados_split.select(size($"split_column")).show()
+
+// A função array_contains nos permite verificar se um determinado elemento existe no array
+dados_split.select(array_contains($"split_column", "Dev")).show()
+
+// Por fim, a função explore pode ser aplicada em colunas Array para extrair cada elemento em uma nova linha
+dados_split.select(explode($"split_column")).show()
+
+// Se você quiser trabalhar com conjunto de valores do tipo "key-value", pode trabalhar com o tipo complexo MAP
+val dados_map = dados_manual.select(map(col("id"), col("job")).alias("mapa"))
+dados_map.show()
+
+// Depois podemos usar a coluna map da seguinte forma
+dados_map.selectExpr("mapa['30']").show()
+
+// Também é possível aplicar a função explode em uma columa map para retornar as colunas key -> value
+dados_map.selectExpr("explode(mapa)").show()
+
+User Defined Functions (UDF)
+
+// Criando uma função
+def incrementaId (number:Integer):Integer = number + 1
+adicionaIdade(10)
+
+// Registra a função para ser aplicada em Dataframes
+val incrementaIdUDF = udf(incrementaId(_:Integer):Integer)
+
+// Usando a função
+dados_manual.select($"id", incrementaIdUDF(col("id"))).show(5)
+
+// Para funcionar no contexto SQL, precisamos registrár a função no Spark SQL
+spark.udf.register("incrementaId", incrementaId(_:Integer):Integer)
+
+// Agora também podemos usá-la no SQL Context
+dados_manual.selectExpr("incrementaId(id)").show(5)
+
+2.7
+
+Importa funções
+import org.apache.spark.sql.functions._
+import spark.implicits._
+
+Carrega os dados
+val dados = spark.read.option("header","true").option("inferSchema","true").option("delimiter",";").format("csv").load("C:/Users/mateus.luz/workspace/spark_datagree/data/bank-additional-full.csv")
+
+Função map e reduce
+// Exemplo de uso da funcao map --> retorna um objeto Dataset
+dados.map(row => "Job: " + row.getAs[String]("job")).show(2)
+
+// Outra forma de conseguir o mesmo resultado usando as abordagens que aprendemos até agora --> retorna um objeto DataFrame com uma nova coluna
+// dados.select($"job").withColumn("teste", concat(lit("Job: "), $"job")).show(5)
+
+--> COMANDO MAP CAMINHA POR CADA LINHA DO MEU DRATAFRAME (OBJETO ROW)
+// Usando a funcao map para aplicar a funcao upper case
+dados.map(linha => linha.getAs[String]("poutcome").toUpperCase()).show(5)
+// Outra forma de conseguir o mesmo resultado usando as abordagens que aprendemos até agora
+// dados.select(upper($"poutcome")).show(5)
+
+--> COMANDO REDUCE NESTE CASO SERVE PARA SOMAR A QUANTIDADE DE CARACTERES DA COLUNA "poutcome" DE TODAS AS LINHAS
+// Aplica a funcao size na coluna poutcome para cada observacao e depois aplicando reduce para somar a quantidade de caracteres
+dados.map(row => row.getAs[String]("poutcome").size).reduce(_+_)
+// Outra forma de conseguir o mesmo resultado usando as abordagens que aprendemos até agora
+// dados.select(sum(length($"poutcome"))).show()
+
+2.9
+
+Junção de mais de um DataFrame em um select (JOIN)
+--> exemplos possuem arrays de funções
+--> lembrar do Scala usando === para comparação (estritamente igual)
+--> outer === full join
+--> cross --> retorna um produto cartesiano dos Datasets utilizados (pessoa e curso)
+--> left_semi --> lista todos os registros da esquerda que possuem math no da direita
+--> left_anti --> oposto do semi_join, lista apenas os registros da esquerda que NÃO possuem match no da direita
+--> comando para renomear colunas --> .withColumnRenamed("id", "pessoaId")
+Juntar colunas com dados complexos (struct, array, map)
+--> pessoa.withColumnRenamed("id", "pessoaId").join(funcao, expr("array_contains(id_funcoes, id)")).show()
+	/\ expressão SQL com o comando "array_contains" passando dois parâmetros --> 1º lista de funções da pessoa, 2º coluna id para fazer o lookup para encontrar a descrição da função
+
+"""#######################################################################################################################
+Importando funcoes e classes
+#######################################################################################################################"""
+
+import org.apache.spark.sql.functions.expr
+
+"""#######################################################################################################################
+Cria dataframes de exemplo
+#######################################################################################################################"""
+
+val pessoa = Seq((1, "Mateus", 0, Seq(300)),(2, "Patricia", 2, Seq(500, 400)),(3, "Rafaela", 1, Seq(500)),(4, "Henrique", -1, Seq(-1))).toDF("id", "nome", "curso", "id_funcoes")
+val curso = Seq((0, "Bacharelado"),(1, "Mestrado"),(2, "Doutorado"),(3, "Tecnólogo")).toDF("id", "curso")
+val funcao = Seq((500, "Gerente"),(400, "Dono"),(300, "Funcionário")).toDF("id", "funcao")
+
+"""#######################################################################################################################
+INNER JOIN
+#######################################################################################################################"""
+
+val joinExpression = pessoa.col("curso") === curso.col("id")
+var joinType = "inner"
+pessoa.join(curso, joinExpression, joinType).show()
+
+"""#######################################################################################################################
+OUTER JOIN
+#######################################################################################################################"""
+
+val joinExpression = pessoa.col("curso") === curso.col("id")
+var joinType = "outer"
+pessoa.join(curso, joinExpression, joinType).show()
+
+"""#######################################################################################################################
+LEFT OUTER JOIN
+#######################################################################################################################"""
+
+val joinExpression = pessoa.col("curso") === curso.col("id")
+var joinType = "left_outer"
+pessoa.join(curso, joinExpression, joinType).show()
+
+"""#######################################################################################################################
+RIGHT OUTER JOIN
+#######################################################################################################################"""
+
+val joinExpression = pessoa.col("curso") === curso.col("id")
+var joinType = "right_outer"
+pessoa.join(curso, joinExpression, joinType).show()
+
+"""#######################################################################################################################
+CROSS JOIN
+#######################################################################################################################"""
+
+pessoa.crossJoin(curso).show()
+
+"""#######################################################################################################################
+LEFT SEMI JOIN
+#######################################################################################################################"""
+
+// Lista todos os registros do dataframe da esquerda que possuem match no dataframe da direita.
+// Podemos olhar para este JOIN como uma espécie de filtro (não é efetivamente um JOIN como estamos acostumados)
+val joinExpression = pessoa.col("curso") === curso.col("id")
+var joinType = "left_semi"
+pessoa.join(curso, joinExpression, joinType).show()
+
+"""#######################################################################################################################
+LEFT ANTI JOIN
+#######################################################################################################################"""
+
+// É o oposto do SEMI JOIN, no sentido de que apenas os registros que NÃO possuem match no dataframe da direta serão retornados
+val joinExpression = pessoa.col("curso") === curso.col("id")
+var joinType = "left_anti"
+pessoa.join(curso, joinExpression, joinType).show()
+
+"""#######################################################################################################################
+JOIN em tipos de dados complexos
+#######################################################################################################################"""
+
+pessoa.withColumnRenamed("id", "pessoaId").join(funcao, expr("array_contains(id_funcoes, id)")).show()
+
+"""#######################################################################################################################
+Tratado possível problema de nome de coluna duplicado
+#######################################################################################################################"""
+
+val joinExpression = pessoa.col("curso") === curso.col("id")
+var joinType = "inner"
+val resultado = pessoa.join(curso, joinExpression, joinType)
+
+// Note que o resultado é um dataframe com duas colunas com o mesmo nome (curso)
+resultado.show()
+
+// Erro: Neste cenário, o comando abaixo não vai funcionar porque spark não saberá quais das duas colunas devem ser retornadas
+//resultado.select("curso").show()
+
+// Podemos excluir uma das colunas após a junçao
+val resultado = pessoa.join(curso, joinExpression, joinType).drop(pessoa.col("curso"))
+resultado.select("curso").show()
+
+2.10
+
+Funções de agrupamento
+
+
 2.13
 
 Spark SQL --> spark-sql --> objeto persistido no sistema de arquivos (HDFS, por exemplo) --> pode ser acessada por uma spark session (spark-shell) ou por ferramentas de terceiros
